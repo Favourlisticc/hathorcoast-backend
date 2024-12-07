@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 // CORS Configuration
 app.use(cors({
-  origin: 'http://localhost:3000', // Specify exact frontend origin
+  origin: ['http://localhost:3000', "https://hathor-coast-frontend-ztas.vercel.app" ]// Specify exact frontend origin
   credentials: true, // Allow credentials
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
