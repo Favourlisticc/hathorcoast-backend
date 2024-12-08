@@ -25,24 +25,28 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Get agent's current ranking
 router.get('/my-ranking', protect, async (req, res) => {
   try {
     const agent = await Agent.findById(req.agent._id);
     if (!agent) {
-      return res.status(404).json({
-        success: false,
-        error: 'Agent not found'
-      });
+      console.log('Agent not found')
+      return res.status(404).json({ success: false, error: 'Agent not found' });
     }
 
     const totalEarnings = agent.commission.totalEarned;
-    
-    // Get all tiers for progress calculation
+
     const tiers = await RankingTier.find().sort('-minimumEarnings');
+    if (!tiers.length) {
+      console.log('No ranking tiers found')
+      return res.status(500).json({ success: false, error: 'No ranking tiers found' });
+    }
+
     const currentTier = await getAgentRankingTier(totalEarnings);
-    
-    // Calculate progress to next tier
+    if (!currentTier) {
+      console.log('No ranking tier found for the agent.')
+      return res.status(404).json({ success: false, error: 'No ranking tier found for the agent.' });
+    }
+
     let progressToNextTier = 100;
     const currentTierIndex = tiers.findIndex(
       tier => tier._id.toString() === currentTier._id.toString()
@@ -55,6 +59,7 @@ router.get('/my-ranking', protect, async (req, res) => {
         (nextTier.minimumEarnings - currentTier.minimumEarnings)) * 100,
         100
       );
+      console.log()
     }
 
     res.status(200).json({
@@ -80,13 +85,14 @@ router.get('/my-ranking', protect, async (req, res) => {
         }))
       }
     });
+
+    
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.log('Error fetching ranking:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // Get all agents rankings
 router.get('/leaderboard', protect, async (req, res) => {

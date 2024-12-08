@@ -140,7 +140,13 @@ const landlordSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin'
     }
-  }
+  },
+  kycStatus: {
+    type: String,
+    enum: ['PENDING', 'APPROVED', 'REJECTED', 'NOT_SUBMITTED'],
+    default: 'NOT_SUBMITTED'
+  },
+  kycVerifiedAt: Date,
 }, { timestamps: true });
 
 // Pre-save hook to hash password before saving

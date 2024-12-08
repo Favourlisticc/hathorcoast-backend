@@ -24,7 +24,7 @@ const protect = async (req, res, next) => {
 };
 
 // Get withdrawal history and current balance
-router.get('/withdrawal-status', protect, async (req, res) => {
+router.get('/withdrawal-status', async (req, res) => {
   try {
     const agent = await Agent.findById(req.agent._id)
       .select('commission bankDetails');

@@ -19,6 +19,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+
 // Configure multer for multiple file uploads
 const upload = multer({ dest: 'uploads/' });
 
@@ -50,29 +51,24 @@ router.post('/create', authMiddleware, upload.array('files', 10), async (req, re
   session.startTransaction();
 
   try {
-    // Check unit balance
-    const totalPurchased = await UnitPurchase.aggregate([
-      {
-        $match: {
-          landlord: req.landlord._id,
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$units' }
-        }
-      }
-    ]);
+    // Fetch the landlord's unit balance
+    const landlord = await Landlord.findById(req.landlord._id).session(session);
 
-    const availableUnits = totalPurchased[0]?.total || 0;
-    const unitsRequired = parseInt(req.body.unitsInstalled) || 0;
+    if (!landlord) {
+      return res.status(404).json({
+        success: false,
+        message: 'Landlord not found',
+      });
+    }
 
+    const availableUnits = parseInt(landlord.amountofunit || '0', 10); // Convert string to number
+    const unitsRequired = parseInt(req.body.unitsInstalled, 10) || 0;
+
+    // Check if the landlord has enough units
     if (unitsRequired > availableUnits) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient units. Available: ${availableUnits}, Required: ${unitsRequired}`
+        message: `Insufficient units. Available: ${availableUnits}, Required: ${unitsRequired}`,
       });
     }
 
@@ -86,7 +82,7 @@ router.post('/create', authMiddleware, upload.array('files', 10), async (req, re
         session 
       }
     );
-    
+
     const propertyCode = `PROP-${String(counter.sequence).padStart(6, '0')}`;
 
     // Parse JSON strings from form data
@@ -107,7 +103,7 @@ router.post('/create', authMiddleware, upload.array('files', 10), async (req, re
         return {
           url: result.secure_url,
           publicId: result.public_id,
-          caption: ''
+          caption: '',
         };
       } catch (error) {
         await fs.unlink(file.path);
@@ -125,43 +121,34 @@ router.post('/create', authMiddleware, upload.array('files', 10), async (req, re
       propertyName: req.body.propertyName,
       address: {
         propertyAddress: req.body.propertyAddress,
-        state: req.body.state
+        state: req.body.state,
       },
       unitsInstalled: unitsRequired,
       propertyManager: req.body.propertyManager || undefined,
       lawyerInCharge: req.body.lawyerInCharge || undefined,
       utilities: utilities.map(util => ({
         utility: util.utility,
-        amountPerAnnum: parseFloat(util.amountPerAnnum)
+        amountPerAnnum: parseFloat(util.amountPerAnnum),
       })),
       images: uploadedImages,
       rentDetails: {
         annualRent: parseFloat(rentDetails.annualRent),
         agreementFees: parseFloat(rentDetails.agreementFees),
-        cautionFees: parseInt(rentDetails.cautionFees)
+        cautionFees: parseInt(rentDetails.cautionFees, 10),
       },
       status: req.body.status,
       financials: {
         totalRevenue: financials.totalRevenue || 0,
-        outstandingBalance: financials.outstandingBalance || 0
-      }
+        outstandingBalance: financials.outstandingBalance || 0,
+      },
     });
 
-    // Create unit deduction record
-    const unitDeduction = new UnitPurchase({
-      landlord: req.landlord._id,
-      amount: 0, // No payment amount since it's a deduction
-      units: -unitsRequired, // Negative value to represent deduction
-      status: 'completed',
-      transactionId: `DEDUCT-${propertyCode}`,
-      paymentReference: `Property Installation: ${propertyCode}`
-    });
+    // Update landlord's balance
+    landlord.amountofunit = (availableUnits - unitsRequired).toString(); // Convert updated balance to string
+    await landlord.save({ session });
 
-    // Save both property and unit deduction
-    await Promise.all([
-      newProperty.save({ session }),
-      unitDeduction.save({ session })
-    ]);
+    // Save property
+    await newProperty.save({ session });
 
     // Commit the transaction
     await session.commitTransaction();
@@ -170,32 +157,18 @@ router.post('/create', authMiddleware, upload.array('files', 10), async (req, re
       success: true,
       data: {
         property: newProperty,
-        remainingUnits: availableUnits - unitsRequired
-      }
+        remainingUnits: availableUnits - unitsRequired,
+      },
     });
-
   } catch (error) {
     // Rollback the transaction
     await session.abortTransaction();
 
     // Clean up uploaded images if they exist
-    if (error && uploadedImages) {
-      try {
-        await Promise.all(
-          uploadedImages.map(image => 
-            cloudinary.uploader.destroy(image.publicId)
-          )
-        );
-      } catch (deleteError) {
-        console.error('Error deleting uploaded images:', deleteError);
-      }
-    }
-
-    // Clean up any remaining temporary files
     if (req.files) {
       await Promise.all(
-        req.files.map(file => 
-          fs.unlink(file.path).catch(err => 
+        req.files.map(file =>
+          fs.unlink(file.path).catch(err =>
             console.error('Error deleting temporary file:', err)
           )
         )
@@ -206,12 +179,13 @@ router.post('/create', authMiddleware, upload.array('files', 10), async (req, re
     res.status(500).json({
       success: false,
       message: 'Error creating property',
-      error: error.message
+      error: error.message,
     });
   } finally {
     session.endSession();
   }
 });
+
 
 // Fetch all properties for the logged-in landlord
 router.get('/', authMiddleware, async (req, res) => {
@@ -224,8 +198,9 @@ router.get('/', authMiddleware, async (req, res) => {
       count: properties.length,
       properties: properties
     });
+    console.log(properties)
   } catch (error) {
-    console.error('Fetch properties error:', error);
+    console.log('Fetch properties error:', error);
     res.status(500).json({ message: 'Error fetching properties', error: error.message });
   }
 });

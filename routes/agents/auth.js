@@ -696,4 +696,26 @@ router.delete('/evictions/:id', protect, async (req, res) => {
   }
 });
 
+// Route to get KYC status
+router.get('/kyc-status', protect, async (req, res) => {
+  try {
+    // Assuming you have middleware to get the logged-in user's ID
+    const agent = await Agent.findById(req.agent._id).select('-password');
+
+
+    if (!agent) {
+      console.log('Landlord not found')
+      return res.status(404).json({ message: 'Landlord not found' });
+    }
+
+    console.log(agent.kycStatus)
+
+    return res.status(200).json({ kycStatus: agent.kycStatus });
+   
+  } catch (error) {
+    console.log('Error fetching KYC status:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

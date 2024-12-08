@@ -161,48 +161,32 @@ router.post('/purchase', authMiddleware, async (req, res) => {
 });
 
 // Get landlord's unit balance
+// Get landlord's unit balance
 router.get('/balance', authMiddleware, async (req, res) => {
   try {
-    const unitTransactions = await UnitPurchase.aggregate([
-      {
-        $match: {
-          landlord: req.landlord._id,
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalUnits: { $sum: '$units' },
-          purchases: {
-            $push: {
-              units: '$units',
-              date: '$createdAt',
-              transactionId: '$transactionId',
-              paymentReference: '$paymentReference'
-            }
-          }
-        }
-      }
-    ]);
+    const landlord = await Landlord.findById(req.landlord._id).select('amountofunit'); // Fetch amountofunit from the landlord's record
 
-    const balance = unitTransactions[0]?.totalUnits || 0;
-    const transactions = unitTransactions[0]?.purchases || [];
+    if (!landlord) {
+      return res.status(404).json({
+        success: false,
+        message: 'Landlord not found',
+      });
+    }
 
     res.status(200).json({
       success: true,
       data: {
-        balance,
-        transactions: transactions.sort((a, b) => b.date - a.date), // Most recent first
-        lastUpdated: new Date()
-      }
+        balance: landlord.amountofunit, // Send amountofunit as balance
+        lastUpdated: new Date(),       // Add timestamp if needed
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 });
+
 
 module.exports = router; 
