@@ -15,8 +15,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 // CORS Configuration
 app.use(cors({
-  origin: 'http://localhost:3000',// Specify exact frontend origin
-  credentials: true, // Allow credentials
+  origin: ['http://localhost:3000', 'https://hathor-coast-frontend-ztas.vercel.app'], // No trailing slash
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type', 
@@ -24,6 +24,7 @@ app.use(cors({
     'Access-Control-Allow-Credentials'
   ]
 }));
+
 
 const initializeCounters = require('./utils/initCounters');
 
