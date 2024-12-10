@@ -6,6 +6,8 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { authMiddleware, adminMiddleware } = require('../../middleware');
 const fs = require('fs');
+const Agent = require('../../models/Agent')
+const Landlord = require("../../models/Landlord")
 
 // Multer configuration for handling multiple files
 const upload = multer({
@@ -28,153 +30,261 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
     const { documentTypes, descriptions } = req.body;
     const files = req.files;
 
-    if (!files || files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No documents provided'
-      });
-    }
+    console.log('Received document types:', documentTypes);
+    console.log('Received descriptions:', descriptions);
+    console.log('Uploaded files:', files);
 
     // Check if KYC already exists
+    console.log('Checking for existing pending KYC submission...');
     const existingKYC = await KYC.findOne({
       'user.id': req.agent._id,
-      'user.type': 'Agent'
+      'user.type': 'Agent',
+      status: 'PENDING',
     });
 
-    if (existingKYC && existingKYC.status === 'PENDING') {
+    if (existingKYC) {
+      console.log('Pending KYC already exists:', existingKYC);
       return res.status(400).json({
         success: false,
-        message: 'You already have a pending KYC verification'
+        message: 'You already have a pending KYC verification',
       });
     }
 
+    console.log('Uploading files to Cloudinary...');
     // Upload files to Cloudinary
     const uploadedDocuments = await Promise.all(
       files.map(async (file, index) => {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: 'kyc-documents',
-          resource_type: 'auto'
-        });
-
-        return {
-          type: documentTypes[index],
-          url: result.secure_url,
-          publicId: result.public_id,
-          description: descriptions[index]
-        };
-      })
-    );
-
-    const kyc = new KYC({
-      user: {
-        id: req.agent._id,
-        type: 'Agent'
-      },
-      documents: uploadedDocuments,
-      status: 'PENDING'
-    });
-
-    await kyc.save();
-
-    res.status(201).json({
-      success: true,
-      data: kyc
-    });
-  } catch (error) {
-    console.error('KYC submission error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error submitting KYC documents',
-      error: error.message
-    });
-  }
-});
-
-router.post('/Tenant/submit', authMiddleware, upload.array('documents', 5), async (req, res) => {
-  try {
-    const { documentTypes, descriptions } = req.body;
-    const files = req.files;
-
-    // Validate input
-    if (!files || files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No documents provided'
-      });
-    }
-
-    if (!documentTypes || documentTypes.length !== files.length) {
-      return res.status(400).json({
-        success: false,
-        message: 'Document types must be provided for each file'
-      });
-    }
-
-    // Validate document types against enum
-    const validTypes = ['PASSPORT', 'DRIVERS_LICENSE', 'NATIONAL_ID', 'UTILITY_BILL', 'BUSINESS_REGISTRATION', 'OTHER'];
-    const invalidTypes = documentTypes.filter(type => !validTypes.includes(type));
-    if (invalidTypes.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid document type(s): ${invalidTypes.join(', ')}. Valid types are: ${validTypes.join(', ')}`
-      });
-    }
-
-    // Check if KYC already exists
-    const existingKYC = await KYC.findOne({
-      'user.id': req.tenant._id,
-      'user.type': 'Tenant'
-    });
-
-    if (existingKYC && existingKYC.status === 'PENDING') {
-      return res.status(400).json({
-        success: false,
-        message: 'You already have a pending KYC verification'
-      });
-    }
-
-    // Upload files to Cloudinary with better error handling
-    const uploadedDocuments = await Promise.all(
-      files.map(async (file, index) => {
         try {
+          console.log(`Uploading file: ${file.originalname}`);
           const result = await cloudinary.uploader.upload(file.path, {
             folder: 'kyc-documents',
-            resource_type: 'auto'
+            resource_type: 'auto',
           });
 
-          return {
-            type: documentTypes[index],
-            url: result.secure_url,
-            publicId: result.public_id,
-            description: descriptions[index] || ''
-          };
-        } catch (uploadError) {
-          throw new Error(`Failed to upload document ${index + 1}: ${uploadError.message}`);
+          console.log('Upload successful:', result.secure_url);
+
+          // Delete local file after upload
+          await fs.promises.unlink(file.path);
+          console.log('Local file deleted:', file.path);
+
+          return { 
+            type: Array.isArray(documentTypes) ? documentTypes[index] : documentTypes, 
+            documenturl: result.secure_url, 
+            publicId: result.public_id, 
+            description: descriptions ? descriptions[index] || '' : '', 
+            selfieurl: documentTypes[index] === 'selfie' ? result.secure_url : undefined, };
+        } catch (error) {
+          console.error('Error uploading file to Cloudinary:', error);
+          throw new Error(`Failed to upload file: ${file.originalname}`);
         }
       })
     );
 
+    console.log('Agent Email:', req.agent.email);
+
+    const agentExists = await Agent.findOne({ email: req.agent.email });
+
+    console.log('Agent Email:', agentExists);
+
+    if (!agentExists) {
+        console.error('Agent not found.');
+        return res.status(404).json({
+            success: false,
+            message: 'Agent not found',
+        });
+    }
+
+    console.log('Agent found:', agentExists);
+
+    // Update Agent's kycStatus using email
+    const updatedAgent = await Agent.findOneAndUpdate(
+        { email: req.agent.email },  // Correctly find the agent by email
+        { kycStatus: 'PENDING' }, // Update the kycStatus field
+        { new: true } // Return the updated document
+    );
+
+    if (!updatedAgent) {
+        console.error('Failed to update Agent KYC status.');
+        return res.status(404).json({
+            success: false,
+            message: 'Agent not found or failed to update KYC status',
+        });
+    }
+
+    console.log('Agent KYC status updated successfully:', updatedAgent);
+    // Save KYC record
     const kyc = new KYC({
       user: {
-        id: req.tenant._id,
-        type: 'Tenant'
+        id: req.agent._id,
+        type: 'Agent',
       },
       documents: uploadedDocuments,
-      status: 'PENDING'
+      status: 'PENDING',
     });
 
     await kyc.save();
+    console.log('KYC record saved:', kyc);
+
+    
 
     res.status(201).json({
       success: true,
-      data: kyc
+      data: kyc,
     });
   } catch (error) {
     console.error('KYC submission error:', error);
+
+    // Clean up local files in case of an error
+    if (req.files) {
+      console.log('Cleaning up local files...');
+      await Promise.all(
+        req.files.map(async (file) => {
+          try {
+            await fs.promises.unlink(file.path);
+            console.log('Deleted local file:', file.path);
+          } catch (err) {
+            console.error('Error cleaning up file:', file.path, err);
+          }
+        })
+      );
+    }
+
     res.status(500).json({
       success: false,
       message: 'Error submitting KYC documents',
-      error: error.message
+      error: error.message,
+    });
+  }
+});
+
+
+
+router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), async (req, res) => {
+  try {
+    const { documentTypes, descriptions } = req.body;
+    const files = req.files;
+
+    console.log('Received document types Landlords:', documentTypes);
+    console.log('Received descriptions:', descriptions);
+    console.log('Uploaded files:', files);
+
+    // Check if KYC already exists
+    console.log('Checking for existing pending KYC submission...');
+    const existingKYC = await KYC.findOne({
+      'user.id': req.landlord._id,
+      'user.type': 'Landlord',
+      status: 'PENDING',
+    });
+
+    if (existingKYC) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have a pending KYC verification',
+      });
+    }
+
+    console.log('Uploading files to Cloudinary...');
+    // Upload files to Cloudinary
+    const uploadedDocuments = await Promise.all(
+      files.map(async (file, index) => {
+        try {
+          console.log(`Uploading file: ${file.originalname}`);
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: 'kyc-documents',
+            resource_type: 'auto',
+            timeout: 120000,
+          });
+
+          console.log('Upload successful:', result.secure_url);
+
+          // Delete local file after upload
+          await fs.promises.unlink(file.path);
+          console.log('Local file deleted:', file.path);
+
+          return { 
+            type: Array.isArray(documentTypes) ? documentTypes[index] : documentTypes, 
+            documenturl: result.secure_url, 
+            publicId: result.public_id, 
+            description: descriptions ? descriptions[index] || '' : '', 
+            selfieurl: documentTypes[index] === 'selfie' ? result.secure_url : undefined, };
+        } catch (error) {
+          console.error('Error uploading file to Cloudinary:', error);
+          throw new Error(`Failed to upload file: ${file.originalname}`);
+        }
+      })
+    );
+
+    console.log('landlord Email:', req.landlord.email);
+
+    const landlordExists = await Landlord.findOne({ email: req.landlord.email });
+
+
+    if (!landlordExists) {
+        console.error('landlord not found.');
+        return res.status(404).json({
+            success: false,
+            message: 'landlord not found',
+        });
+    }
+
+
+    // Update landlord's kycStatus using email
+    const updatedlandlord = await Landlord.findOneAndUpdate(
+        { email: req.landlord.email },  // Correctly find the landlord by email
+        { kycStatus: 'PENDING' }, // Update the kycStatus field
+        { new: true } // Return the updated document
+    );
+
+    if (!updatedlandlord) {
+        console.error('Failed to update landlord KYC status.');
+        return res.status(404).json({
+            success: false,
+            message: 'landlord not found or failed to update KYC status',
+        });
+    }
+
+    console.log('landlord KYC status updated successfully:', updatedlandlord);
+    // Save KYC record
+    const kyc = new KYC({
+      user: {
+        id: req.landlord._id,
+        type: 'landlord',
+      },
+      documents: uploadedDocuments,
+      status: 'PENDING',
+    });
+
+    await kyc.save();
+    console.log('KYC record saved:', kyc);
+
+    
+
+    res.status(201).json({
+      success: true,
+      data: kyc,
+    });
+  } catch (error) {
+    console.error('KYC submission error:', error);
+
+    // Clean up local files in case of an error
+    if (req.files) {
+      console.log('Cleaning up local files...');
+      await Promise.all(
+        req.files.map(async (file) => {
+          try {
+            await fs.promises.unlink(file.path);
+            console.log('Deleted local file:', file.path);
+          } catch (err) {
+            console.error('Error cleaning up file:', file.path, err);
+          }
+        })
+      );
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Error submitting KYC documents',
+      error: error.message,
     });
   }
 });

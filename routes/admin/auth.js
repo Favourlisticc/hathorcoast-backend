@@ -10,6 +10,7 @@ const sendEmail = require('../../utils/sendEmail');
 const mongoose = require('mongoose');
 const TokenBlacklist = require('../../models/TokenBlacklist');
 const bcrypt = require('bcrypt');
+const Kyc = require("../../models/KYC")
 
 router.post('/signin', async (req, res) => {
   try {
@@ -111,7 +112,7 @@ router.get('/pending-landlords', adminMiddleware, async (req, res) => {
     const pendingLandlords = await Landlord.find({ isApproved: false })
       .select('firstName lastName email phoneNumber amountofunit amountpaid agentreferral');
     res.json(pendingLandlords);
-    console.log(pendingLandlords)
+  
   } catch (error) {
     res.status(500).json({ message: 'Error fetching pending landlords', error: error.message });
   }
@@ -122,7 +123,7 @@ router.get('/pending-agents', adminMiddleware, async (req, res) => {
   try {
     const pendingLandlords = await Agent.find({ isApproved: false })
       .select('firstName lastName email');
-    res.json(pendingLandlords);
+   
   } catch (error) {
     res.status(500).json({ message: 'Error fetching pending landlords', error: error.message });
   }
@@ -485,5 +486,57 @@ router.delete('/delete/:id', adminMiddleware, superAdminMiddleware, async (req, 
     session.endSession();
   }
 });
+
+// Route to fetch all pending KYCs
+router.get('/pendingKycs', async (req, res) => {
+  try {
+    // Fetch all KYCs with status 'PENDING' and populate user details
+    const pendingKycs = await Kyc.find({ status: 'PENDING' })
+      .populate({
+        path: 'user.id', // Populate user ID with actual user details
+        select: 'name email phone type', // Select necessary user details, including type
+      });
+
+      console.log(pendingKycs); // Inspect the populated user data
+
+    // Format the response
+    const formattedKycs = pendingKycs.map(kyc => ({
+      id: kyc._id,
+      user: {
+        id: kyc.user.id._id, // Ensure user ID is returned
+        name: kyc.user.id.name, // Assuming user schema has a `name` field
+        email: kyc.user.id.email,
+        phone: kyc.user.id.phone,
+        type: kyc.user.id.type,  
+      },
+      documents: kyc.documents.map(doc => ({
+        type: doc.type,
+        documentUrl: doc.documenturl,
+        selfieUrl: doc.selfieurl,
+        description: doc.description,
+      })),
+      status: kyc.status,
+      adminComment: kyc.adminComment || null,
+      submittedAt: kyc.submittedAt,
+      verifiedAt: kyc.verifiedAt || null,
+    }));
+
+    console.log(formattedKycs);
+
+    // Respond with the formatted data
+    res.status(200).json({
+      success: true,
+      data: formattedKycs,
+    });
+  } catch (error) {
+    console.log('Error fetching pending KYCs:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch pending KYCs',
+    });
+  }
+});
+
+
 
 module.exports = router;
