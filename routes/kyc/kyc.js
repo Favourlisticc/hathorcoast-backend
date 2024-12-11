@@ -248,7 +248,7 @@ router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), as
     const kyc = new KYC({
       user: {
         id: req.landlord._id,
-        type: 'landlord',
+        type: 'Landlord',
       },
       documents: uploadedDocuments,
       status: 'PENDING',
@@ -368,7 +368,7 @@ router.get('/admin/submissions', adminMiddleware, async (req, res) => {
     }
 
     const tenants = await Tenant.find(tenantQuery)
-      .select('firstName lastName contactInfo.email kycDocuments kycStatus kycVerifiedAt')
+      .select('firstName lastName address phoneNumber contactInfo.email kycDocuments kycStatus kycVerifiedAt')
       .sort({ 'kycDocuments.uploadedAt': -1 });
 
     // Combine and format the results
@@ -381,10 +381,14 @@ router.get('/admin/submissions', adminMiddleware, async (req, res) => {
           id: sub.user.id._id,
           firstName: sub.user.id.firstName,
           lastName: sub.user.id.lastName,
+          address: sub.user.id.address,
+          phonenumber: sub.user.id.phoneNumber,
           email: sub.user.id.contactInfo?.email || sub.user.id.email,
-          type: sub.user.type
+          type: sub.user.type,
         },
-        documents: sub.documents
+        documents: sub.documents.map(doc => doc.documenturl), // Extract all document URLs
+        documentsDescription: sub.documents.map(doc => doc.description), // Extract all document URLs
+        documentsType: sub.documents.map(doc => doc.type), // Extract all document URLs
       })),
       ...tenants.map(tenant => ({
         type: 'tenant_kyc',
@@ -396,15 +400,16 @@ router.get('/admin/submissions', adminMiddleware, async (req, res) => {
           firstName: tenant.firstName,
           lastName: tenant.lastName,
           email: tenant.contactInfo.email,
-          type: 'Tenant'
+          type: 'Tenant',
         },
         documents: {
           passport: tenant.kycDocuments.passport,
           identityProof: tenant.kycDocuments.identityProof,
-          identityProofType: tenant.kycDocuments.identityProofType
-        }
+          identityProofType: tenant.kycDocuments.identityProofType,
+        },
       }))
     ];
+    
 
     // Sort combined results by date
     const sortedSubmissions = combinedSubmissions.sort((a, b) => 
@@ -416,6 +421,8 @@ router.get('/admin/submissions', adminMiddleware, async (req, res) => {
     const endIndex = startIndex + parseInt(limit);
     const paginatedResults = sortedSubmissions.slice(startIndex, endIndex);
     const total = sortedSubmissions.length;
+
+
 
     res.status(200).json({
       success: true,
@@ -437,73 +444,73 @@ router.get('/admin/submissions', adminMiddleware, async (req, res) => {
   }
 });
 
-// Verify KYC submission
 router.put('/admin/verify/:id', adminMiddleware, async (req, res) => {
   try {
     const { status, adminComment, submissionType } = req.body;
 
-    if (submissionType === 'tenant_kyc') {
-      // Handle tenant direct upload verification
-      const tenant = await Tenant.findById(req.params.id);
-      
-      if (!tenant) {
-        return res.status(404).json({
-          success: false,
-          message: 'Tenant not found'
-        });
-      }
+    console.log(status, adminComment, submissionType)
 
-      // Update tenant's KYC status
-      tenant.kycStatus = status;
-      tenant.kycVerifiedAt = Date.now();
-      tenant.kycVerifiedBy = req.admin._id;
-      tenant.kycAdminComment = adminComment;
-
-      await tenant.save();
-
-      return res.status(200).json({
-        success: true,
-        data: tenant
-      });
-
+    // Handle verification based on user type
+    let UserModel;
+    if (submissionType === 'Agent') {
+      UserModel = require('../../models/Agent');
+    } else if (submissionType === 'Tenant') {
+      UserModel = require('../../models/Tenant');
+    } else if (submissionType === 'Landlord') {
+      UserModel = require('../../models/Landlord');
     } else {
-      // Handle regular KYC submission verification
-      const kyc = await KYC.findById(req.params.id);
-
-      if (!kyc) {
-        return res.status(404).json({
-          success: false,
-          message: 'KYC submission not found'
-        });
-      }
-
-      kyc.status = status;
-      kyc.adminComment = adminComment;
-      kyc.verifiedAt = Date.now();
-      kyc.verifiedBy = req.admin._id;
-
-      await kyc.save();
-
-      // Update user's KYC status in their respective model
-      const UserModel = kyc.user.type === 'Agent' ? require('../../models/Agent') : require('../../models/Tenant');
-      await UserModel.findByIdAndUpdate(kyc.user.id, {
-        kycStatus: status,
-        kycVerifiedAt: Date.now()
-      });
-
-      return res.status(200).json({
-        success: true,
-        data: kyc
+      console.log('Invalid user type')
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user type',
       });
     }
+
+    // Find user and update KYC
+    const user = await UserModel.findById(req.params.id);
+    if (!user) {
+      console.log(`${submissionType} not found`)
+      return res.status(404).json({
+        success: false,
+        message: `${submissionType} not found`,
+      });
+    }
+
+    user.kycStatus = status; // Update KYC status
+    user.kycVerifiedAt = Date.now(); // Add verification timestamp
+    user.kycVerifiedBy = req.admin._id; // Record admin ID
+    user.kycAdminComment = adminComment; // Add admin comment
+    await user.save();
+
+    // Update KYC schema for the submitted ID
+    const kyc = await KYC.findOneAndUpdate(
+      { 'user.id': req.params.id, 'user.type': submissionType },
+      { status, verifiedAt: Date.now(), verifiedBy: req.admin._id, adminComment },
+      { new: true }
+    );
+
+    if (!kyc) {
+      console.log("KYC submission not found")
+      return res.status(404).json({
+        success: false,
+        message: 'KYC submission not found',
+      });
+    }
+
+    console.log(kyc)
+    return res.status(200).json({
+      success: true,
+      data: kyc,
+    });
   } catch (error) {
-    console.error('Error verifying KYC:', error);
+    console.log('Error verifying KYC:', error);
     res.status(500).json({
       success: false,
       message: 'Error verifying KYC submission',
-      error: error.message
+      error: error.message,
     });
   }
 });
+
 
 module.exports = router; 

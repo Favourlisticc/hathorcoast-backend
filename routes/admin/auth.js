@@ -123,6 +123,8 @@ router.get('/pending-agents', adminMiddleware, async (req, res) => {
   try {
     const pendingLandlords = await Agent.find({ isApproved: false })
       .select('firstName lastName email');
+
+      res.json(pendingLandlords);
    
   } catch (error) {
     res.status(500).json({ message: 'Error fetching pending landlords', error: error.message });
@@ -487,43 +489,54 @@ router.delete('/delete/:id', adminMiddleware, superAdminMiddleware, async (req, 
   }
 });
 
-// Route to fetch all pending KYCs
 router.get('/pendingKycs', async (req, res) => {
   try {
-    // Fetch all KYCs with status 'PENDING' and populate user details
+    // Fetch all KYCs with status 'PENDING' 
     const pendingKycs = await Kyc.find({ status: 'PENDING' })
       .populate({
-        path: 'user.id', // Populate user ID with actual user details
-        select: 'name email phone type', // Select necessary user details, including type
+        path: 'user.id',
+        select: 'firstName lastName phoneNumber email businessName',
       });
 
-      console.log(pendingKycs); // Inspect the populated user data
-
     // Format the response
-    const formattedKycs = pendingKycs.map(kyc => ({
-      id: kyc._id,
-      user: {
-        id: kyc.user.id._id, // Ensure user ID is returned
-        name: kyc.user.id.name, // Assuming user schema has a `name` field
-        email: kyc.user.id.email,
-        phone: kyc.user.id.phone,
-        type: kyc.user.id.type,  
-      },
-      documents: kyc.documents.map(doc => ({
-        type: doc.type,
-        documentUrl: doc.documenturl,
-        selfieUrl: doc.selfieurl,
-        description: doc.description,
-      })),
-      status: kyc.status,
-      adminComment: kyc.adminComment || null,
-      submittedAt: kyc.submittedAt,
-      verifiedAt: kyc.verifiedAt || null,
-    }));
+    const formattedKycs = pendingKycs.map(kyc => {
+      const userData = kyc.user.id;
+      const userType = kyc.user.type; // Get type directly from KYC document
+      
+      // Base response object
+      const response = {
+        id: kyc._id,
+        type: userType, // Use the type from KYC document
+        user: {
+          id: userData._id,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          phoneNumber: userData.phoneNumber,
+          email: userData.email,
+          type: userType, // Use the type from KYC document
+        },
+        documents: kyc.documents.map(doc => ({
+          type: doc.type,
+          documentUrl: doc.documenturl,
+          selfieUrl: doc.selfieurl,
+          description: doc.description,
+        })),
+        status: kyc.status,
+        adminComment: kyc.adminComment || null,
+        submittedAt: kyc.submittedAt,
+        verifiedAt: kyc.verifiedAt || null,
+      };
+
+      // Add businessName only if user is an Agent
+      if (userType === 'Agent' && userData.businessName) {
+        response.user.businessName = userData.businessName;
+      }
+
+      return response;
+    });
 
     console.log(formattedKycs);
 
-    // Respond with the formatted data
     res.status(200).json({
       success: true,
       data: formattedKycs,
