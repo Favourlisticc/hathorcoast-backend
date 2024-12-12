@@ -35,8 +35,8 @@ const tenantSchema = new mongoose.Schema({
   passwordResetToken: String,
   passwordResetExpires: Date,
   dateOfBirth: { type: Date }, // Changed to Date type
-  currentAddress: { type: String, required: true }, // Added current address field
-  nextOfKin: { // Added next of kin details
+  currentAddress: { type: String, }, // Added current address field
+  nextOfKin: { // Added next of kin details 
     name: { type: String },
     phoneNumber: { type: String },
     address: { type: String }
@@ -59,16 +59,16 @@ const tenantSchema = new mongoose.Schema({
   leaseType: { 
     type: String, 
     enum: ['Daily', 'Monthly', 'Annually'],
-    required: true 
+    
   },
   rent: { 
     type: Number, 
-    required: true,
+    
     min: 0 
   },
   cautionFee: { 
     type: Number, 
-    required: true,
+   
     min: 0 
   },
   dates: {
@@ -139,8 +139,8 @@ const tenantSchema = new mongoose.Schema({
   },
   kycStatus: {
     type: String,
-    enum: ['PENDING', 'APPROVED', 'REJECTED'],
-    default: 'PENDING'
+    enum: ['PENDING', 'APPROVED', 'REJECTED', 'NOT_SUBMITTED'],
+    default: 'NOT_SUBMITTED'
   },
   kycVerifiedAt: Date,
   kycVerifiedBy: {

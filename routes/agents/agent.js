@@ -232,4 +232,34 @@ router.put('/profile/documents', protect,
     }
 });
 
+
+// Fetch commission balance and referrals
+router.get('/agent-data', protect, async (req, res) => {
+  try {
+    const agentId = req.agent._id; // Assuming authMiddleware attaches user info to req
+
+    // Fetch agent data
+    const agent = await Agent.findById(agentId)
+      .select('commission referrals') // Only fetch commission and referral fields
+      .populate({
+        path: 'referral.referredBy',
+        select: 'useremail phonenumber amountpaid', // Adjust based on your schema
+      });
+
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+
+    console.log(agent.commission, agent.referrals)
+    res.json({
+      commission: agent.commission,
+      referrals: agent.referrals,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 module.exports = router; 

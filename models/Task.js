@@ -1,32 +1,26 @@
 const mongoose = require('mongoose');
 
 const TaskSchema = new mongoose.Schema({
-  title: {
+  task: {
     type: String,
     required: [true, 'Task title is required'],
     trim: true
-  },
-  description: {
-    type: String,
-    required: [true, 'Task description is required']
   },
   deadline: {
     type: Date,
     required: [true, 'Task deadline is required']
   },
-  status: {
-    type: String,
-    enum: ['pending', 'in_progress', 'completed'],
-    default: 'pending'
+  assignedTo: {
+    type: [String],
   },
-  assignedTo: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Agent'
-  }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',
-    required: true
+  },
+  Status: {
+    type: String,
+    emu: ["all", "pending", "in_progress", "completed"],
+    defualt: "pending",
   },
   createdAt: {
     type: Date,

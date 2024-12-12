@@ -78,168 +78,78 @@ const uploadToCloudinary = async (file, folder) => {
   }
 };
 
-// Create a new tenant
-router.post('/create', authMiddleware, upload, async (req, res) => {
+router.post('/create', authMiddleware, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
+    // Fetch landlord details from the request
+    const landlordId = req.landlord._id;
+    const landlord = await Landlord.findById(landlordId).select('-password');
+
+    if (!landlord) {
+      return res.status(404).json({ message: 'Landlord not found' });
+    }
+
+    const tenantData = req.body; // Read tenant data from the request body
+    console.log('Received Tenant Data:', tenantData);
+
+    // Validate required fields
+    if (!tenantData.title || !tenantData.firstName || !tenantData.lastName || !tenantData.contactInfo?.email) {
+      return res.status(400).json({ message: 'All required fields must be provided' });
+    }
+
     // Check for existing tenant with the same email
-    const existingTenant = await Tenant.findOne({ 'contactInfo.email': req.body.contactInfo.email });
+    const existingTenant = await Tenant.findOne({ 'contactInfo.email': tenantData.contactInfo.email });
     if (existingTenant) {
       return res.status(409).json({ message: 'A tenant with this email already exists' });
     }
 
-    if (req.body === "") {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
+    // Save tenant data, including the landlord ID
+    const newTenant = await Tenant.create([{
+      title: tenantData.title,
+      firstName: tenantData.firstName,
+      lastName: tenantData.lastName,
+      dateOfBirth: tenantData.dateOfBirth,
+      password: tenantData.password,
+      contactInfo: {
+        email: tenantData.contactInfo.email,
+        phoneNumber: tenantData.contactInfo.phoneNumber,
+      },
+      currentAddress: tenantData.currentAddress,
+      nextOfKin: tenantData.nextOfKin,
+      landlord: landlordId, // Associate the tenant with the landlord
+    }], { session });
 
-    // Handle referral code
-    let referrer;
+    // Commit transaction
+    await session.commitTransaction();
 
-    if (req.body.referralCode) {
-      referrer = await Promise.all([
-        Tenant.findOne({ 'referral.referralCode': req.body.referralCode }),
-        Landlord.findOne({ 'referral.referralCode': req.body.referralCode }),
-        Agent.findOne({ 'referral.referralCode': req.body.referralCode })
-      ]).then(([tenant, landlord, agent]) => tenant || landlord || agent);
-
-      if (!referrer) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid referral code'
-        });
-      }
-    }
-    // Generate tokens
-    const { invitationCode } = generateTokens();
-
-    // Upload files to Cloudinary if they exist
-    let passportUrl, identityProofUrl;
-
-    if (req.files) {
-      try {
-        const uploadPromises = [];
-
-        if (req.files.passport) {
-          uploadPromises.push(
-            uploadToCloudinary(req.files.passport[0], 'tenants/kyc/passport')
-              .then(url => { passportUrl = url; })
-          );
-        }
-
-        if (req.files.identityProof) {
-          uploadPromises.push(
-            uploadToCloudinary(req.files.identityProof[0], 'tenants/kyc/identity')
-              .then(url => { identityProofUrl = url; })
-          );
-        }
-
-        // Wait for all uploads to complete
-        await Promise.all(uploadPromises);
-
-      } catch (uploadError) {
-        console.error('Error uploading files:', uploadError);
-        return res.status(500).json({
-          status: 'error',
-          message: 'Error uploading files. Please try again with smaller files or check your connection.',
-          error: uploadError.message
-        });
-      }
-    }
-
-    // Create tenant data with file URLs
-    const tenantData = {
-      ...req.body,
-      landlord: req.landlord._id,
-      invitationCode: invitationCode,
-      kycStatus: "PENDING",
-      kycDocuments: {
-        passport: passportUrl,
-        identityProof: identityProofUrl,
-        identityProofType: req.body.identityProofType,
-        uploadedAt: new Date()
-      }
-    };
-
-    // Use session for transaction
-    const session = await mongoose.startSession();
-    await session.startTransaction();
-
-    try {
-      // Save tenant
-      const newTenant = await Tenant.create([tenantData], { session });
-
-      let user;
-      let model;
-
-      // Determine user type and model based on role
-      if (req.user.role === 'tenant') {
-        model = "Tenant";
-        user = req.tenant;
-      } else if (req.user.role === 'landlord') {
-        model = "Landlord";
-        user = req.landlord;
-      }
-
-      // If there's a referrer, update their referral history
-      if (referrer) {
-        referrer.referral.commission.referralHistory.push({
-          referredUser: user._id,
-          userType: model,
-          commission: 0, // Will be updated when tenant makes a payment
-          status: 'pending'
-        });
-        await referrer.save({ session });
-      }
-
-      // Generate reset URL
-      // const resetURL = `${process.env.FRONTEND_URL}/auth/set-password/${resetToken}`;
-      const invitationURL = `${process.env.FRONTEND_URL}/auth/tenant-signup?code=${invitationCode}`;
-
-      // Send email
-      await sendEmail({
-        email: req.body.contactInfo.email,
-        subject: 'Welcome to Our Platform - Complete Your Registration',
-        html: `
-          <h2>Welcome to Our Platform!</h2>
-          <p>You have been added as a tenant by your landlord.</p>
-          <p>Your invitation code is: <strong>${invitationCode}</strong></p>
-          <p>Please complete your registration by following these steps:</p>
-          <ol>
-            <li>Visit <a href="${invitationURL}">this link</a> and enter your invitation code</li>
-            <li>Set up your password to continue</li>
-          </ol>
-          <p>These links will expire in 2 days for security purposes.</p>
-          <p>If you did not request this invitation, please ignore this email.</p>
-        `
-      });
-
-      await session.commitTransaction();
-
-      res.status(201).json({
-        status: 'success',
-        message: 'Tenant created successfully. Invitation sent to email.',
-        data: {
-          tenant: {
-            id: newTenant[0]._id,
-            email: newTenant[0].contactInfo.email,
-            invitationCode
-          }
-        }
-      });
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
-    }
+    res.status(201).json({
+      status: 'success',
+      message: 'Tenant created successfully.',
+      data: {
+        tenant: {
+          id: newTenant[0]._id,
+          email: newTenant[0].contactInfo.email,
+        },
+      },
+    });
   } catch (error) {
+    // Abort transaction in case of an error
+    await session.abortTransaction();
     console.error('Error creating tenant:', error);
     res.status(500).json({
       status: 'error',
       message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
+  } finally {
+    session.endSession();
   }
-}); 
+});
+
+
+
 
 // Helper route to verify invitation code
 router.post('/verify-invitation', async (req, res) => {
@@ -276,8 +186,8 @@ router.post('/verify-invitation', async (req, res) => {
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const tenants = await Tenant.find({ landlord: req.landlord._id })
-      .select('-documents').populate('property') // Exclude documents for faster query, if not needed
-      .sort({ createdAt: -1 }); // Sort by creation date, newest first
+     
+      console.log("fecthing tenent", tenants)
 
     res.status(200).json({
       message: 'Tenants fetched successfully',
@@ -285,7 +195,7 @@ router.get('/', authMiddleware, async (req, res) => {
       totalTenants: tenants.length
     });
   } catch (error) {
-    console.error('Fetch tenants error:', error);
+    console.log('Fetch tenants error:', error);
     res.status(500).json({ message: 'Error fetching tenants', error: error.message });
   }
 });

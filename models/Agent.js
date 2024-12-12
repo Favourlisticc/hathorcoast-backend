@@ -219,6 +219,7 @@ const AgentSchema = new mongoose.Schema({
     default: 'NOT_SUBMITTED'
   },
   kycVerifiedAt: Date,
+  referrals: [{ useremail: String,  id: { type: mongoose.Schema.Types.ObjectId, ref: 'Landlord' }, phonenumber: Number, amountpaid: Number }],
   referral: {
     referralCode: {
       type: String,

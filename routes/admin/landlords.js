@@ -79,13 +79,14 @@ router.get('/account-officer-requests', adminMiddleware, async (req, res) => {
   try {
     const landlords = await Landlord.find({
       'accountOfficerRequest.status': { $exists: true }
-    }).select('firstName lastName email accountOfficerRequest');
+    }).select('firstName lastName email phoneNumber accountOfficerRequest');
 
     const requests = landlords.map(landlord => ({
       _id: landlord._id,
       landlordId: landlord._id,
       landlordName: `${landlord.firstName} ${landlord.lastName}`,
       landlordEmail: landlord.email,
+      landlordPhonenumber: landlord.phoneNumber,
       requestedAt: landlord.accountOfficerRequest.requestedAt,
       status: landlord.accountOfficerRequest.status,
       processedAt: landlord.accountOfficerRequest.processedAt,
@@ -107,10 +108,11 @@ router.get('/account-officer-requests', adminMiddleware, async (req, res) => {
   }
 });
 
-// Assign account officer to a landlord
 router.post('/process-account-officer-request', adminMiddleware, async (req, res) => {
   try {
     const { landlordId, agentId, status } = req.body;
+
+    console.log(landlordId, agentId, status)
 
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({
@@ -183,78 +185,10 @@ router.post('/process-account-officer-request', adminMiddleware, async (req, res
         processedBy: req.admin._id
       };
 
-      // Send email notifications
-      const emailPromises = [
-        // Email to Agent
-        sendEmail({
-          email: agent.email,
-          subject: 'New Landlord Assignment Confirmation',
-          html: `
-            <!DOCTYPE html>
-            <html>
-              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <h2 style="color: #444;">New Landlord Assignment</h2>
-                  
-                  <p>Hello ${agent.firstName},</p>
-                  
-                  <p>Your account officer request has been approved. You are now assigned as both the account officer and referrer for:</p>
-                  
-                  <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p style="margin: 0;">
-                      <strong>Landlord Name:</strong> ${landlord.firstName} ${landlord.lastName}<br>
-                      <strong>Email:</strong> ${landlord.email}
-                    </p>
-                  </div>
-                  
-                  <p>A commission of ₦${commissionAmount.toLocaleString()} has been added to your account.</p>
-                  
-                  <p>Please reach out to the landlord to introduce yourself and begin managing their account.</p>
-                  
-                  <p>Best regards,<br>Property Management Team</p>
-                </div>
-              </body>
-            </html>
-          `
-        }),
-        // Email to Landlord
-        sendEmail({
-          email: landlord.email,
-          subject: 'Account Officer Assignment Confirmation',
-          html: `
-            <!DOCTYPE html>
-            <html>
-              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <h2 style="color: #444;">Account Officer Assigned</h2>
-                  
-                  <p>Hello ${landlord.firstName},</p>
-                  
-                  <p>Your account officer request has been approved. We're pleased to inform you that an account officer has been assigned to your account:</p>
-                  
-                  <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p style="margin: 0;">
-                      <strong>Account Officer:</strong> ${agent.firstName} ${agent.lastName}<br>
-                      <strong>Email:</strong> ${agent.email}<br>
-                      <strong>Phone:</strong> ${agent.phoneNumber}
-                    </p>
-                  </div>
-                  
-                  <p>Your account officer will be in touch with you shortly to introduce themselves and assist you with your property management needs.</p>
-                  
-                  <p>Best regards,<br>Property Management Team</p>
-                </div>
-              </body>
-            </html>
-          `
-        })
-      ];
-
       // Save all updates
       await Promise.all([
         landlord.save(),
-        agent.save(),
-        ...emailPromises
+        agent.save()
       ]);
     } else {
       // Handle rejection
@@ -264,29 +198,7 @@ router.post('/process-account-officer-request', adminMiddleware, async (req, res
         processedBy: req.admin._id
       };
 
-      await Promise.all([
-        landlord.save(),
-        sendEmail({
-          email: landlord.email,
-          subject: 'Account Officer Request Update',
-          html: `
-            <!DOCTYPE html>
-            <html>
-              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <h2 style="color: #444;">Account Officer Request Update</h2>
-                  
-                  <p>Hello ${landlord.firstName},</p>
-                  
-                  <p>We regret to inform you that your account officer request could not be processed at this time. Please contact our support team if you have any questions.</p>
-                  
-                  <p>Best regards,<br>Property Management Team</p>
-                </div>
-              </body>
-            </html>
-          `
-        })
-      ]);
+      await landlord.save();
     }
 
     res.status(200).json({
@@ -304,6 +216,7 @@ router.post('/process-account-officer-request', adminMiddleware, async (req, res
     });
   }
 });
+
 
 // Get a single landlord
 router.get('/:id', adminMiddleware, async (req, res) => {

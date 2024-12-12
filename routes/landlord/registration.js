@@ -82,7 +82,7 @@ router.post('/signin', async (req, res) => {
 
     // Check if agent is approved
     if (landlord.isApproved === false) {
-      console.log('Account is pending approval. Please contact administration.' )
+     
       return res.status(403).json({ 
         success: false, 
         message: 'Account is pending approval. Please contact administration.' 
@@ -378,6 +378,8 @@ router.post('/request-new-account-officer', authMiddleware, async (req, res) => 
   try {
     const landlord = await Landlord.findById(req.landlord._id);
 
+    console.log(landlord)
+
     if (!landlord) {
       return res.status(404).json({ 
         success: false,
@@ -404,7 +406,9 @@ router.post('/request-new-account-officer', authMiddleware, async (req, res) => 
     // Store current account officer details for reference
     const currentOfficer = {
       name: landlord.accountOfficer.name,
-      email: landlord.accountOfficer.email
+      email: landlord.accountOfficer.email,
+      phonenumber: landlord.accountOfficer.phoneNumber
+
     };
 
     // Create new request with additional context
@@ -495,7 +499,7 @@ router.post('/request-new-account-officer', authMiddleware, async (req, res) => 
     });
 
   } catch (error) {
-    console.error('Request new account officer error:', error);
+    console.log('Request new account officer error:', error);
     res.status(500).json({
       success: false,
       message: 'Error submitting new account officer request',
@@ -512,11 +516,11 @@ router.get('/kyc-status', authMiddleware, async (req, res) => {
 
 
     if (!landlord) {
-      console.log('Landlord not found')
       return res.status(404).json({ message: 'Landlord not found' });
     }
 
     return res.status(200).json({ kycStatus: landlord.kycStatus });
+    
   } catch (error) {
     console.log('Error fetching KYC status:', error);
     return res.status(500).json({ message: 'Server error' });

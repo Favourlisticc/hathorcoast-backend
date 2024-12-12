@@ -5,58 +5,71 @@ const Agent = require('../../models/Agent');
 const { adminMiddleware } = require('../../middleware');
 
 // Create a new task
-router.post('/', adminMiddleware, async (req, res) => {
+router.post("/", adminMiddleware, async (req, res) => {
   try {
-    // First check if there are agents available
-    const agentsCount = await Agent.countDocuments();
-    if (agentsCount === 0) {
+    const { task, deadline, userType } = req.body;
+    console.log(task, deadline, userType);
+
+    // Validate required fields
+    if (!task || !deadline || !userType) {
+      console.log("Title, description, and deadline are required");
       return res.status(400).json({
         success: false,
-        error: 'Cannot create tasks: No agents available in the system'
+        error: "Title, description, and deadline are required",
       });
     }
 
-    // Validate required fields
-    const requiredFields = ['title', 'description', 'deadline'];
-    for (const field of requiredFields) {
-      if (!req.body[field]) {
-        return res.status(400).json({
-          success: false,
-          error: `${field} is required`
-        });
-      }
-    }
-    
-    // Create task with validated data
-    const taskData = {
-      ...req.body,
-      createdBy: req.admin._id,
-      status: 'pending'
-    };
 
-    const task = new Task(taskData);
-    await task.save();
+    // Create task
+    const tasks = new Task({
+      task,
+      deadline,
+      assignedTo: userType,
+      status: "pending",
+    });
+
+    await tasks.save();
 
     res.status(201).json({
       success: true,
-      data: task
+      message: "Task created successfully",
+      data: tasks,
     });
   } catch (error) {
-    console.error('Task creation error:', error);
-    res.status(400).json({
+    console.log("Task creation error:", error);
+    res.status(500).json({
       success: false,
-      error: error.message || 'Failed to create task'
+      error: error.message || "Failed to create task",
     });
   }
 });
+
+// Fetch tasks route
+router.get("/foradmin", async (req, res) => {
+  try {
+    const tasks = await Task.find().sort({ deadline: 1 }); // Sort by deadline
+
+    console.log(tasks)
+    res.status(200).json({
+      success: true,
+      data: tasks,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch tasks",
+    });
+  }
+});
+
 
 // Get all tasks
 router.get('/', adminMiddleware, async (req, res) => {
   try {
     const tasks = await Task.find()
-      .populate('assignedTo', 'firstName lastName email')
-      .sort('-createdAt');
+    
 
+    console.log(tasks)
     res.status(200).json({
       success: true,
       count: tasks.length,

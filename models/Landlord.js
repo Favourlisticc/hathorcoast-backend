@@ -43,10 +43,10 @@ const landlordSchema = new mongoose.Schema({
     content: String 
   }],
   accountOfficer: {
-    name: String,
-    email: String,
-    phone: String,
-    photo: String
+    name: { type: String },
+    email: { type: String },
+    phone: { type: String },
+    photo: { type: String },
   },
   preferences: {
     emailNotifications: { type: Boolean, default: true },

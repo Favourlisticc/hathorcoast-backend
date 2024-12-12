@@ -132,36 +132,66 @@ router.get('/pending-agents', adminMiddleware, async (req, res) => {
 });
 
 // Approve user (tenant or landlord)
-router.post('/approve-user', adminMiddleware, async (req, res) => {
-  const { userId, userType } = req.body;
-  console.log(req.body)
+router.post('/approve-user', adminMiddleware, async (req, res) => { 
+  const { userId, userType } = req.body; 
+  console.log(req.body);
 
-  try {
-    let user;
-    if (userType === 'tenant') {
-      user = await Tenant.findByIdAndUpdate(userId, { isApproved: true }, { new: true });
-    } else if (userType === 'landlord') {
-      user = await Landlord.findByIdAndUpdate(userId, { isApproved: true }, { new: true });
-    } else if (userType === 'agent') {
-      user = await Agent.findByIdAndUpdate(userId, { isApproved: true }, { new: true });
-    } else {
-      return res.status(400).json({ message: 'Invalid user type' });
-    }
+  try { 
+    let user; 
+    if (userType === 'tenent') {
+       user = await Tenant.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
+      } else if (userType === 'landlord') {
+         user = await Landlord.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
+         // Check for the referring agent 
+         if (user) { 
+          const agent = await Agent.findOne({ email: user.agentreferral }); 
+           if (agent) { 
+            // Update the agent's accountOfficer field 
+            user.accountOfficer = { 
+              name: `${user.firstName} ${user.lastName}`, 
+              email: user.email, 
+              phone: user.phoneNumber, 
+              photo: user.avatar }; 
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+              await user.save();
+              
+              // Calculate 6% commission 
+              const amountPaid = parseFloat(user.amountpaid); 
+              const commission = (6 / 100) * amountPaid; 
+              
+              // Update the agent's commission 
+              agent.commission.balance += commission; 
+              agent.commission.totalEarned += commission; 
 
-    // Here you might want to send an email to the user notifying them of approval
-    await sendEmail({
-      email: user.email || user.contactInfo.email,
-      subject: 'Account Approved',
-      message: 'Your account has been approved. Full access to the platform is now available.'
-    });
+              // Update the agent's referrals field 
+              agent.referrals.push({ 
+                useremail: user.email,
+                id: user._id, 
+                phonenumber: user.phoneNumber, 
+                amountpaid: amountPaid 
+              }); 
+              await agent.save(); 
+            } 
+          } 
+        } else if (userType === 'agent') {
+           user = await Agent.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
 
-    res.json({ message: 'User approved successfully', user });
-  } catch (error) {
-    res.status(500).json({ message: 'Error approving user', error: error.message });
+          } else { 
+            console.log('Invalid user type'); 
+            return res.status(400).json({ message: 'Invalid user type' }); 
+          
+          } 
+          
+          if (!user) { 
+            console.log('User not found'); 
+            return res.status(404).json({ message: 'User not found' }); 
+          } 
+          
+          res.json({ message: 'User approved successfully', user }); 
+
+        } catch (error) { 
+          console.log('Error approving', error)
+          res.status(500).json({ message: 'Error approving user', error: error.message });
   }
 });
 
