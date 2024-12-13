@@ -132,7 +132,7 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
       data: kyc,
     });
   } catch (error) {
-    console.error('KYC submission error:', error);
+    console.log('KYC submission error:', error);
 
     // Clean up local files in case of an error
     if (req.files) {
@@ -264,7 +264,7 @@ router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), as
       data: kyc,
     });
   } catch (error) {
-    console.error('KYC submission error:', error);
+    console.log('KYC submission error:', error);
 
     // Clean up local files in case of an error
     if (req.files) {

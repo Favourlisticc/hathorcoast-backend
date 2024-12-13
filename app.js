@@ -72,6 +72,7 @@ app.use('/admin/units', require('./routes/admin/unit-price'));
 app.use('/admin/units', require('./routes/admin/units'));
 app.use('/payment', require('./routes/payment/index'));
 app.use('/kyc', require('./routes/kyc/kyc'));
+app.use('/sales', require('./routes/salesoverview/sales'));
 app.use('/admin/management', require('./routes/admin/admin'));
 
 http.listen(PORT, () => {

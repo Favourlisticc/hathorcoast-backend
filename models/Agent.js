@@ -104,11 +104,6 @@ const WithdrawalSchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'rejected', 'completed'],
     default: 'pending'
   },
-  withdrawalType: {
-    type: String,
-    enum: ['partial', 'quarterly', 'biannual', 'annual'],
-    required: true
-  },
   requestDate: {
     type: Date,
     default: Date.now
@@ -187,7 +182,7 @@ const AgentSchema = new mongoose.Schema({
   },
   lastLogin: Date,
   commission: {
-    balance: {
+     balance: {
       type: Number,
       default: 0
     },

@@ -11,14 +11,9 @@ const WithdrawalSchema = new mongoose.Schema({
     required: true,
     min: [1000, 'Minimum withdrawal amount is ₦1,000']
   },
-  withdrawalType: {
-    type: String,
-    enum: ['partial', 'quarterly', 'biannual', 'annual'],
-    required: true
-  },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'completed', 'failed', 'cancelled'],
+    enum: ['pending','completed','cancelled'],
     default: 'pending'
   },
   bankDetails: {
@@ -40,16 +35,7 @@ const WithdrawalSchema = new mongoose.Schema({
       enum: ['savings', 'current']
     }
   },
-  transactionReference: {
-    type: String,
-    unique: true,
-    sparse: true // Allows null/undefined values to not trigger unique constraint
-  },
   processedDate: Date,
-  processedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Admin'
-  },
   remarks: String,
   failureReason: String,
   metadata: {

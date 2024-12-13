@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Agent = require('../../models/Agent');
+const Withdrawal = require("../../models/Withdrawal")
 
 // Middleware to protect routes
 const protect = async (req, res, next) => {
@@ -154,5 +155,98 @@ router.put('/withdrawal-settings', protect, async (req, res) => {
     });
   }
 });
+
+
+// Check withdrawal eligibility
+router.get('/withdraw-status', protect, async (req, res) => {
+  try {
+    // Fetch the authenticated agent's details
+    const agent = await Agent.findById(req.agent._id).select('kycStatus bankDetails commission'); 
+      // Adjusted to fetch only relevant fields
+
+    if (!agent) {
+      console.log('Agent not found')
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+
+    // Check if KYC is approved
+    if (agent.kycStatus !== 'APPROVED') {
+      console.log('KYC verification is not complete. Please complete your KYC.' )
+      return res.status(400).json({ message: 'KYC verification is not complete. Please complete your KYC.' });
+    }
+
+    // Check if bank details are available
+    if (!agent.bankDetails || !agent.bankDetails.bankName || !agent.bankDetails.accountNumber || !agent.bankDetails.accountName) {
+      console.log('Bank details are missing. Please add your bank details.')
+      return res.status(400).json({ message: 'Bank details are missing. Please add your bank details.' });
+    }
+
+    console.log('Eligible for withdrawal.', agent.commission.balance)
+    return res.status(200).json({
+      message: 'Eligible for withdrawal.',
+      commissionBalance: agent.commission.balance,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+
+// POST /api/withdrawals-request
+router.post('/withdrawals-request', protect, async (req, res) => {
+  const { amount } = req.body;
+
+  try {
+    // Retrieve agent details
+    const agent = await Agent.findById(req.agent._id).populate('bankDetails');
+    if (!agent) {
+      console.log('Agent not found');
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    const { bankDetails, firstName, lastName, phoneNumber, commission } = agent;
+
+    // Validate amount against withdrawal settings
+    const { minimumWithdrawalAmount, maximumWithdrawalAmount } = commission.withdrawalSettings;
+    if (amount < minimumWithdrawalAmount || amount > maximumWithdrawalAmount) {
+      console.log(`Amount must be between ₦${minimumWithdrawalAmount} and ₦${maximumWithdrawalAmount}.`);
+      return res.status(400).json({ error: `Amount must be between ₦${minimumWithdrawalAmount} and ₦${maximumWithdrawalAmount}.` });
+    }
+
+    // Create a new withdrawal document
+    const newWithdrawal = new Withdrawal({
+      agent: agent._id,
+      amount,
+      bankDetails,
+      metadata: {
+        requesterName: `${firstName} ${lastName}`,
+        phoneNumber,
+      },
+    });
+
+    // Save the withdrawal to the Withdrawal collection
+    const savedWithdrawal = await newWithdrawal.save();
+
+    // Update the agent's withdrawal history with amount and reference
+    agent.commission.withdrawalHistory.push({
+      amount,        // Save the withdrawal amount
+    });
+    agent.commission.lastWithdrawal = new Date();
+    await agent.save();
+
+    // Log and return the successful response
+    console.log(savedWithdrawal);
+    return res.status(200).json({
+      message: 'Withdrawal request submitted successfully',
+      withdrawal: savedWithdrawal,
+    });
+  } catch (error) {
+    console.error('Error processing withdrawal request:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+
 
 module.exports = router; 

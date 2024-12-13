@@ -79,4 +79,23 @@ router.get('/history', authMiddleware, async (req, res) => {
   }
 });
 
+
+// GET /api/withdrawals - Fetch all withdrawal requests
+router.get('/table', async (req, res) => {
+  try {
+    // Fetch all withdrawals with agent and bank details populated
+    const withdrawals = await Withdrawal.find()
+      .populate('agent', 'firstName lastName phoneNumber') // Populate agent details
+      .sort({ createdAt: -1 }); // Sort by most recent
+
+    res.status(200).json({
+      success: true,
+      withdrawals,
+    });
+  } catch (error) {
+    console.error('Error fetching withdrawals:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

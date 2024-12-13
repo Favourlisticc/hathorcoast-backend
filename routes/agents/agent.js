@@ -250,7 +250,6 @@ router.get('/agent-data', protect, async (req, res) => {
       return res.status(404).json({ message: 'Agent not found' });
     }
 
-    console.log(agent.commission, agent.referrals)
     res.json({
       commission: agent.commission,
       referrals: agent.referrals,
