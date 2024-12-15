@@ -19,6 +19,7 @@ router.get('/price', authMiddleware, async (req, res) => {
         error: 'No active unit price found'
       });
     }
+    ///me
 
     res.status(200).json({
       success: true,
