@@ -232,14 +232,26 @@ router.delete('/:id', protect, async (req, res) => {
 // @desc    Get all landlords
 // @route   GET /api/agents/landlords
 // @access  Private
-router.get('/landlords', async (req, res) => {
+router.get('/landlords', protect, async (req, res) => {
   try {
-    const landlords = await Landlord.find().select('-password');
+    // Fetch the agent's email from the database
+    const agent = await Agent.findById(req.agent._id).select('-password');
+    console.log("agent email",agent.email)
+    if (!agent) {
+      return res.status(404).json({ success: false, message: "Agent not found" });
+    }
+
+    // Find landlords where agentReferral matches the agent's email
+    const landlords = await Landlord.find({ agentreferral: agent.email }).select('-password');
+   
+
+    // Send the filtered landlords to the frontend
     res.status(200).json({ success: true, data: landlords });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 });
+
 
 // @desc    Create landlord
 // @route   POST /api/agents/landlords
@@ -247,6 +259,7 @@ router.get('/landlords', async (req, res) => {
 router.post('/landlords', protect, async (req, res) => {
   try {
     const landlord = await Landlord.create(req.body);
+    console.log("getting lanlords", landlord)
     res.status(201).json({ success: true, data: landlord });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -277,14 +290,32 @@ router.put('/landlords/:id', protect, async (req, res) => {
 // @desc    Get all tenants
 // @route   GET /api/agents/tenants
 // @access  Private
-router.get('/tenants', async (req, res) => {
+router.get('/tenants', protect, async (req, res) => {
   try {
-    const tenants = await Tenant.find().select('-password');
+    // Find the agent by ID
+    const agent = await Agent.findById(req.agent._id).select('-password');
+    if (!agent) {
+      return res.status(404).json({ success: false, message: "Agent not found" });
+    }
+
+    // Find landlords where agentReferral matches the agent's email
+    const landlords = await Landlord.find({ agentreferral: agent.email }).select('tenants');
+    console.log("agent landlords", landlords);
+
+    // Extract tenant IDs from landlords
+    const tenantIds = landlords.flatMap(landlord => landlord.tenants);
+
+    console.log("agenr tenants", tenantIds);
+
+    // Find tenants using the extracted tenant IDs
+    const tenants = await Tenant.find({ _id: { $in: tenantIds } }).select('-password');
+
     res.status(200).json({ success: true, data: tenants });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 });
+
 
 // @desc    Create tenant
 // @route   POST /api/agents/tenants
@@ -467,14 +498,29 @@ router.put('/tenants/:id', protect, async (req, res) => {
 // @desc    Get all properties
 // @route   GET /api/agents/properties
 // @access  Private
-router.get('/properties', async (req, res) => {
+router.get('/properties', protect, async (req, res) => {
   try {
-    const properties = await Property.find().populate('landlord', 'firstName lastName email');
+    // Find the agent by ID
+    const agent = await Agent.findById(req.agent._id).select('-password');
+    if (!agent) {
+      return res.status(404).json({ success: false, message: "Agent not found" });
+    }
+
+    // Find landlords where agentReferral matches the agent's email
+    const landlords = await Landlord.find({ agentReferral: agent.email }).select('properties');
+
+    // Extract property IDs from landlords
+    const propertyIds = landlords.flatMap(landlord => landlord.properties);
+
+    // Find properties using the extracted property IDs
+    const properties = await Property.find({ _id: { $in: propertyIds } }).populate('landlord', 'firstName lastName email');
+
     res.status(200).json({ success: true, data: properties });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 });
+
 
 // @desc    Create property
 // @route   POST /api/agents/properties

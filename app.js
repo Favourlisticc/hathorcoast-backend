@@ -74,6 +74,7 @@ app.use('/payment', require('./routes/payment/index'));
 app.use('/kyc', require('./routes/kyc/kyc'));
 app.use('/sales', require('./routes/salesoverview/sales'));
 app.use('/admin/management', require('./routes/admin/admin'));
+app.use('/admin/agentfee', require('./routes/agentfee/index'));
 
 http.listen(PORT, () => {
   console.log(`Server connected on ${PORT}`);

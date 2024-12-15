@@ -8,7 +8,7 @@ const landlordSchema = new mongoose.Schema({
   phoneNumber: { 
     type: String, 
     required: true, 
-    match: [/^0\d{10}$/, 'Please enter a valid phone number'] 
+    // match: [/^0\d{13}$/, 'Please enter a valid phone number'] 
   },
   propertyAddress: { type: String },
   email: { 

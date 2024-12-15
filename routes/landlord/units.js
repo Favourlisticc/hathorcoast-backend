@@ -165,7 +165,6 @@ router.post('/purchase', authMiddleware, async (req, res) => {
 router.get('/balance', authMiddleware, async (req, res) => {
   try {
     const landlord = await Landlord.findById(req.landlord._id).select('amountofunit'); // Fetch amountofunit from the landlord's record
-
     if (!landlord) {
       return res.status(404).json({
         success: false,
@@ -181,6 +180,7 @@ router.get('/balance', authMiddleware, async (req, res) => {
       },
     });
   } catch (error) {
+    console.log(error)
     res.status(500).json({
       success: false,
       error: error.message,

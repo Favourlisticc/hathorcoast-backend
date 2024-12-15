@@ -11,6 +11,7 @@ const mongoose = require('mongoose');
 const TokenBlacklist = require('../../models/TokenBlacklist');
 const bcrypt = require('bcrypt');
 const Kyc = require("../../models/KYC")
+const AgentFee = require("../../models/agentfee")
 
 router.post('/signin', async (req, res) => {
   try {
@@ -137,63 +138,73 @@ router.post('/approve-user', adminMiddleware, async (req, res) => {
   console.log(req.body);
 
   try { 
-    let user; 
-    if (userType === 'tenent') {
-       user = await Tenant.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
+      let user; 
+      
+      // Fetch the latest fee from AgentFeeSchema
+      const latestFee = await AgentFee.findOne().sort({ dateChanged: -1 }); // Sort by dateChanged in descending order
+      if (!latestFee) {
+          return res.status(500).json({ message: "Agent fee not found. Please add the fee first." });
+      }
+
+      const commissionRate = latestFee.fee; // Fetch the most recent agent percentage fee
+
+      if (userType === 'tenent') {
+          user = await Tenant.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
       } else if (userType === 'landlord') {
-         user = await Landlord.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
-         // Check for the referring agent 
-         if (user) { 
-          const agent = await Agent.findOne({ email: user.agentreferral }); 
-           if (agent) { 
-            // Update the agent's accountOfficer field 
-            user.accountOfficer = { 
-              name: `${user.firstName} ${user.lastName}`, 
-              email: user.email, 
-              phone: user.phoneNumber, 
-              photo: user.avatar }; 
-
-              await user.save();
-              
-              // Calculate 6% commission 
-              const amountPaid = parseFloat(user.amountpaid); 
-              const commission = (6 / 100) * amountPaid; 
-              
-              // Update the agent's commission 
-              agent.commission.balance += commission; 
-              agent.commission.totalEarned += commission; 
-
-              // Update the agent's referrals field 
-              agent.referrals.push({ 
-                useremail: user.email,
-                id: user._id, 
-                phonenumber: user.phoneNumber, 
-                amountpaid: amountPaid 
-              }); 
-              await agent.save(); 
-            } 
-          } 
-        } else if (userType === 'agent') {
-           user = await Agent.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
-
-          } else { 
-            console.log('Invalid user type'); 
-            return res.status(400).json({ message: 'Invalid user type' }); 
+          user = await Landlord.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
           
-          } 
-          
-          if (!user) { 
-            console.log('User not found'); 
-            return res.status(404).json({ message: 'User not found' }); 
-          } 
-          
-          res.json({ message: 'User approved successfully', user }); 
+          // Check for the referring agent 
+          if (user) { 
+              const agent = await Agent.findOne({ email: user.agentreferral }); 
+              if (agent) { 
+                  // Update the agent's accountOfficer field 
+                  user.accountOfficer = { 
+                      name: `${user.firstName} ${user.lastName}`, 
+                      email: user.email, 
+                      phone: user.phoneNumber, 
+                      photo: user.avatar 
+                  }; 
 
-        } catch (error) { 
-          console.log('Error approving', error)
-          res.status(500).json({ message: 'Error approving user', error: error.message });
+                  await user.save();
+
+                  // Calculate commission based on the fetched fee
+                  const amountPaid = parseFloat(user.amountpaid); 
+                  const commission = (commissionRate / 100) * amountPaid; 
+                  
+                  // Update the agent's commission 
+                  agent.commission.balance += commission; 
+                  agent.commission.totalEarned += commission; 
+
+                  // Update the agent's referrals field 
+                  agent.referrals.push({ 
+                      useremail: user.email,
+                      id: user._id, 
+                      phonenumber: user.phoneNumber, 
+                      amountpaid: amountPaid 
+                  }); 
+                  await agent.save(); 
+              } 
+          } 
+      } else if (userType === 'agent') {
+          user = await Agent.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
+      } else { 
+          console.log('Invalid user type'); 
+          return res.status(400).json({ message: 'Invalid user type' }); 
+      } 
+      
+      if (!user) { 
+          console.log('User not found'); 
+          return res.status(404).json({ message: 'User not found' }); 
+      } 
+      
+      res.json({ message: 'User approved successfully', user }); 
+
+  } catch (error) { 
+      console.log('Error approving', error);
+      res.status(500).json({ message: 'Error approving user', error: error.message });
   }
 });
+
 
 router.patch('/toggle-admin-status/:adminId', adminMiddleware, superAdminMiddleware, async (req, res) => {
   try {
