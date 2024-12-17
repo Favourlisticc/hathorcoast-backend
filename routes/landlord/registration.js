@@ -28,7 +28,7 @@ router.use(bodyParser.urlencoded({ extended: true }));
 router.post('/register', async (req, res) => {
   try {
     const { firstName, lastName, email, password, phoneNumber, dateOfBirth, unitOfProperty, amountSubscription, transferAccount, agentEmail  } = req.body;
-    console.log(req.body)
+
     // Check if user already exists
     const existingLandlord = await Landlord.findOne({ 'email': email });
     if (existingLandlord) {
@@ -49,7 +49,7 @@ router.post('/register', async (req, res) => {
       transferAccount: transferAccount,
     });
 
-    console.log(newLandlord)
+
 
     await newLandlord.save();
 
@@ -257,12 +257,12 @@ router.get('/profile', authMiddleware, async (req, res) => {
     const landlord = await Landlord.findById(req.landlord._id).select('-password');
     
     if (!landlord) {
-      console.log('Landlord not found')
+
       return res.status(404).json({ message: 'Landlord not found' });
     }
 
     res.status(200).json(landlord);
-    console.log(landlord)
+
   } catch (error) {
     console.log('Fetch profile error:', error);
     res.status(500).json({ message: 'Error fetching landlord profile', error: error.message });
@@ -378,7 +378,7 @@ router.post('/request-new-account-officer', authMiddleware, async (req, res) => 
   try {
     const landlord = await Landlord.findById(req.landlord._id);
 
-    console.log(landlord)
+  
 
     if (!landlord) {
       return res.status(404).json({ 

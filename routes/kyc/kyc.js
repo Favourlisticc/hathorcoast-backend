@@ -30,12 +30,9 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
     const { documentTypes, descriptions } = req.body;
     const files = req.files;
 
-    console.log('Received document types:', documentTypes);
-    console.log('Received descriptions:', descriptions);
-    console.log('Uploaded files:', files);
 
     // Check if KYC already exists
-    console.log('Checking for existing pending KYC submission...');
+  
     const existingKYC = await KYC.findOne({
       'user.id': req.agent._id,
       'user.type': 'Agent',
@@ -43,29 +40,29 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
     });
 
     if (existingKYC) {
-      console.log('Pending KYC already exists:', existingKYC);
+     
       return res.status(400).json({
         success: false,
         message: 'You already have a pending KYC verification',
       });
     }
 
-    console.log('Uploading files to Cloudinary...');
+
     // Upload files to Cloudinary
     const uploadedDocuments = await Promise.all(
       files.map(async (file, index) => {
         try {
-          console.log(`Uploading file: ${file.originalname}`);
+        
           const result = await cloudinary.uploader.upload(file.path, {
             folder: 'kyc-documents',
             resource_type: 'auto',
           });
 
-          console.log('Upload successful:', result.secure_url);
+   
 
           // Delete local file after upload
           await fs.promises.unlink(file.path);
-          console.log('Local file deleted:', file.path);
+  
 
           return { 
             type: Array.isArray(documentTypes) ? documentTypes[index] : documentTypes, 
@@ -80,11 +77,10 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
       })
     );
 
-    console.log('Agent Email:', req.agent.email);
+   
 
     const agentExists = await Agent.findOne({ email: req.agent.email });
 
-    console.log('Agent Email:', agentExists);
 
     if (!agentExists) {
         console.error('Agent not found.');
@@ -94,7 +90,7 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
         });
     }
 
-    console.log('Agent found:', agentExists);
+   
 
     // Update Agent's kycStatus using email
     const updatedAgent = await Agent.findOneAndUpdate(
@@ -111,7 +107,7 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
         });
     }
 
-    console.log('Agent KYC status updated successfully:', updatedAgent);
+  
     // Save KYC record
     const kyc = new KYC({
       user: {
@@ -123,7 +119,7 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
     });
 
     await kyc.save();
-    console.log('KYC record saved:', kyc);
+
 
     
 
@@ -136,12 +132,12 @@ router.post('/Agent/submit', authMiddleware, upload.array('documents', 5), async
 
     // Clean up local files in case of an error
     if (req.files) {
-      console.log('Cleaning up local files...');
+ 
       await Promise.all(
         req.files.map(async (file) => {
           try {
             await fs.promises.unlink(file.path);
-            console.log('Deleted local file:', file.path);
+           
           } catch (err) {
             console.error('Error cleaning up file:', file.path, err);
           }
@@ -164,9 +160,7 @@ router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), as
     const { documentTypes, descriptions } = req.body;
     const files = req.files;
 
-    console.log('Received document types Landlords:', documentTypes);
-    console.log('Received descriptions:', descriptions);
-    console.log('Uploaded files:', files);
+
 
     // Check if KYC already exists
     console.log('Checking for existing pending KYC submission...');
@@ -183,23 +177,23 @@ router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), as
       });
     }
 
-    console.log('Uploading files to Cloudinary...');
+
     // Upload files to Cloudinary
     const uploadedDocuments = await Promise.all(
       files.map(async (file, index) => {
         try {
-          console.log(`Uploading file: ${file.originalname}`);
+          
           const result = await cloudinary.uploader.upload(file.path, {
             folder: 'kyc-documents',
             resource_type: 'auto',
             timeout: 120000,
           });
 
-          console.log('Upload successful:', result.secure_url);
+        
 
           // Delete local file after upload
           await fs.promises.unlink(file.path);
-          console.log('Local file deleted:', file.path);
+       
 
           return { 
             type: Array.isArray(documentTypes) ? documentTypes[index] : documentTypes, 
@@ -214,7 +208,6 @@ router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), as
       })
     );
 
-    console.log('landlord Email:', req.landlord.email);
 
     const landlordExists = await Landlord.findOne({ email: req.landlord.email });
 
@@ -243,7 +236,7 @@ router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), as
         });
     }
 
-    console.log('landlord KYC status updated successfully:', updatedlandlord);
+  
     // Save KYC record
     const kyc = new KYC({
       user: {
@@ -255,7 +248,7 @@ router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), as
     });
 
     await kyc.save();
-    console.log('KYC record saved:', kyc);
+  
 
     
 
@@ -268,12 +261,12 @@ router.post('/Landlord/submit', authMiddleware, upload.array('documents', 2), as
 
     // Clean up local files in case of an error
     if (req.files) {
-      console.log('Cleaning up local files...');
+
       await Promise.all(
         req.files.map(async (file) => {
           try {
             await fs.promises.unlink(file.path);
-            console.log('Deleted local file:', file.path);
+          
           } catch (err) {
             console.error('Error cleaning up file:', file.path, err);
           }
@@ -448,7 +441,7 @@ router.put('/admin/verify/:id', adminMiddleware, async (req, res) => {
   try {
     const { status, adminComment, submissionType } = req.body;
 
-    console.log(status, adminComment, submissionType)
+  
 
     // Handle verification based on user type
     let UserModel;
@@ -459,7 +452,7 @@ router.put('/admin/verify/:id', adminMiddleware, async (req, res) => {
     } else if (submissionType === 'Landlord') {
       UserModel = require('../../models/Landlord');
     } else {
-      console.log('Invalid user type')
+   
       return res.status(400).json({
         success: false,
         message: 'Invalid user type',
@@ -469,7 +462,7 @@ router.put('/admin/verify/:id', adminMiddleware, async (req, res) => {
     // Find user and update KYC
     const user = await UserModel.findById(req.params.id);
     if (!user) {
-      console.log(`${submissionType} not found`)
+     
       return res.status(404).json({
         success: false,
         message: `${submissionType} not found`,
@@ -490,14 +483,14 @@ router.put('/admin/verify/:id', adminMiddleware, async (req, res) => {
     );
 
     if (!kyc) {
-      console.log("KYC submission not found")
+      
       return res.status(404).json({
         success: false,
         message: 'KYC submission not found',
       });
     }
 
-    console.log(kyc)
+    
     return res.status(200).json({
       success: true,
       data: kyc,

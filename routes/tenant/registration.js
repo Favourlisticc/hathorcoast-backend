@@ -92,7 +92,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     }
 
     const tenantData = req.body; // Read tenant data from the request body
-    console.log('Received Tenant Data:', tenantData);
+   
 
     // Validate required fields
     if (!tenantData.title || !tenantData.firstName || !tenantData.lastName || !tenantData.contactInfo?.email) {
@@ -187,7 +187,7 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const tenants = await Tenant.find({ landlord: req.landlord._id })
      
-      console.log("fecthing tenent", tenants)
+   
 
     res.status(200).json({
       message: 'Tenants fetched successfully',

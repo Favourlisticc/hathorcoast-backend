@@ -112,8 +112,7 @@ router.post('/process-account-officer-request', adminMiddleware, async (req, res
   try {
     const { landlordId, agentId, status } = req.body;
 
-    console.log(landlordId, agentId, status)
-
+ 
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({
         success: false,

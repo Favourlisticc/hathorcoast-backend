@@ -8,11 +8,11 @@ const { adminMiddleware } = require('../../middleware');
 router.post("/", adminMiddleware, async (req, res) => {
   try {
     const { task, deadline, userType } = req.body;
-    console.log(task, deadline, userType);
+    // console.log(task, deadline, userType);
 
     // Validate required fields
     if (!task || !deadline || !userType) {
-      console.log("Title, description, and deadline are required");
+
       return res.status(400).json({
         success: false,
         error: "Title, description, and deadline are required",
@@ -29,6 +29,7 @@ router.post("/", adminMiddleware, async (req, res) => {
     });
 
     await tasks.save();
+
 
     res.status(201).json({
       success: true,
@@ -49,7 +50,7 @@ router.get("/foradmin", async (req, res) => {
   try {
     const tasks = await Task.find().sort({ deadline: 1 }); // Sort by deadline
 
-    console.log(tasks)
+   
     res.status(200).json({
       success: true,
       data: tasks,
@@ -64,16 +65,15 @@ router.get("/foradmin", async (req, res) => {
 
 
 // Get all tasks
-router.get('/', adminMiddleware, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const tasks = await Task.find()
     
 
-    console.log(tasks)
     res.status(200).json({
       success: true,
       count: tasks.length,
-      data: tasks
+      tasks
     });
   } catch (error) {
     res.status(400).json({

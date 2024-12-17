@@ -171,7 +171,7 @@ router.get('/withdraw-status', protect, async (req, res) => {
 
     // Check if KYC is approved
     if (agent.kycStatus !== 'APPROVED') {
-      console.log('KYC verification is not complete. Please complete your KYC.' )
+    
       return res.status(400).json({ message: 'KYC verification is not complete. Please complete your KYC.' });
     }
 
@@ -181,7 +181,7 @@ router.get('/withdraw-status', protect, async (req, res) => {
       return res.status(400).json({ message: 'Bank details are missing. Please add your bank details.' });
     }
 
-    console.log('Eligible for withdrawal.', agent.commission.balance)
+   
     return res.status(200).json({
       message: 'Eligible for withdrawal.',
       commissionBalance: agent.commission.balance,
@@ -210,7 +210,7 @@ router.post('/withdrawals-request', protect, async (req, res) => {
     // Validate amount against withdrawal settings
     const { minimumWithdrawalAmount, maximumWithdrawalAmount } = commission.withdrawalSettings;
     if (amount < minimumWithdrawalAmount || amount > maximumWithdrawalAmount) {
-      console.log(`Amount must be between ₦${minimumWithdrawalAmount} and ₦${maximumWithdrawalAmount}.`);
+     
       return res.status(400).json({ error: `Amount must be between ₦${minimumWithdrawalAmount} and ₦${maximumWithdrawalAmount}.` });
     }
 
@@ -236,7 +236,7 @@ router.post('/withdrawals-request', protect, async (req, res) => {
     await agent.save();
 
     // Log and return the successful response
-    console.log(savedWithdrawal);
+
     return res.status(200).json({
       message: 'Withdrawal request submitted successfully',
       withdrawal: savedWithdrawal,

@@ -198,7 +198,7 @@ router.get('/', authMiddleware, async (req, res) => {
       count: properties.length,
       properties: properties
     });
-    console.log(properties)
+ 
   } catch (error) {
     console.log('Fetch properties error:', error);
     res.status(500).json({ message: 'Error fetching properties', error: error.message });
@@ -355,7 +355,7 @@ router.put('/:id/assign-tenant', authMiddleware, async (req, res) => {
         entry => entry.referredUser.toString() === tenant._id.toString()
       );
 
-      console.log(referralEntry);
+  
 
       if (referralEntry) {
         // Update the referral status and add commission to balance

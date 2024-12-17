@@ -82,6 +82,8 @@ router.put('/profile', protect, upload.single('avatar'), async (req, res) => {
       nextOfKin
     } = req.body;
 
+    console.log()
+
     const agent = await Agent.findById(req.agent._id);
 
     if (!agent) {

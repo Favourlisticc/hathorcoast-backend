@@ -76,19 +76,19 @@ const BankDetailsSchema = new mongoose.Schema({
 const NextOfKinSchema = new mongoose.Schema({
   fullName: {
     type: String,
-    required: [true, 'Next of kin name is required']
+    // required: [true, 'Next of kin name is required']
   },
   relationship: {
     type: String,
-    required: [true, 'Relationship is required']
+    // required: [true, 'Relationship is required']
   },
   phoneNumber: {
     type: String,
-    match: [/^0\d{10}$/, 'Please enter a valid phone number']
+    // match: [/^0\d{10}$/, 'Please enter a valid phone number']
   },
   email: {
     type: String,
-    match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email']
+    // match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email']
   },
   address: AddressSchema
 });
@@ -158,6 +158,10 @@ const AgentSchema = new mongoose.Schema({
     type: String,
     enum: ['male', 'female', 'other']
   },
+  dateOfBirth: { type: String },
+  nationality: { type: String },
+  stateOfOrigin: { type: String },
+  localGovernmentArea: { type: String },
   alternativePhone: {
     type: String,
     match: [/^0\d{10}$/, 'Please enter a valid phone number']
@@ -259,6 +263,7 @@ const AgentSchema = new mongoose.Schema({
     }
   },
   isApproved: { type: Boolean, default: false },
+  alternatePhoneNumber: { type: String },
 });
 
 // Encrypt password using bcrypt

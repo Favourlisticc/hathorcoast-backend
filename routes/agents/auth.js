@@ -27,7 +27,7 @@ const generateToken = (id) => {
 // Middleware to protect routes
 const protect = async (req, res, next) => {
   let token;
-  console.log(token)
+
   
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
@@ -96,7 +96,7 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log(email)
+   
 
     // Check for agent email - explicitly select password field
     const agent = await Agent.findOne({ email }).select('+password');
@@ -110,7 +110,7 @@ router.post('/login', async (req, res) => {
 
     // Check if agent is approved
     if (agent.isApproved === false) {
-      console.log('Account is pending approval. Please contact administration.' )
+      
       return res.status(403).json({ 
         success: false, 
         message: 'Account is pending approval. Please contact administration.' 
@@ -143,7 +143,7 @@ router.post('/login', async (req, res) => {
       }
     });
 
-    console.log(token)
+   
   } catch (error) {
     console.log(error)
     res.status(400).json({ 
@@ -236,7 +236,7 @@ router.get('/landlords', protect, async (req, res) => {
   try {
     // Fetch the agent's email from the database
     const agent = await Agent.findById(req.agent._id).select('-password');
-    console.log("agent email",agent.email)
+ 
     if (!agent) {
       return res.status(404).json({ success: false, message: "Agent not found" });
     }
@@ -259,7 +259,7 @@ router.get('/landlords', protect, async (req, res) => {
 router.post('/landlords', protect, async (req, res) => {
   try {
     const landlord = await Landlord.create(req.body);
-    console.log("getting lanlords", landlord)
+
     res.status(201).json({ success: true, data: landlord });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -300,12 +300,11 @@ router.get('/tenants', protect, async (req, res) => {
 
     // Find landlords where agentReferral matches the agent's email
     const landlords = await Landlord.find({ agentreferral: agent.email }).select('tenants');
-    console.log("agent landlords", landlords);
 
     // Extract tenant IDs from landlords
     const tenantIds = landlords.flatMap(landlord => landlord.tenants);
 
-    console.log("agenr tenants", tenantIds);
+  
 
     // Find tenants using the extracted tenant IDs
     const tenants = await Tenant.find({ _id: { $in: tenantIds } }).select('-password');
@@ -754,7 +753,6 @@ router.get('/kyc-status', protect, async (req, res) => {
       return res.status(404).json({ message: 'Landlord not found' });
     }
 
-    console.log(agent.kycStatus)
 
     return res.status(200).json({ kycStatus: agent.kycStatus });
    

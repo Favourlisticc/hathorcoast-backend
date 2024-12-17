@@ -59,7 +59,7 @@ router.get('/my-ranking', protect, async (req, res) => {
         (nextTier.minimumEarnings - currentTier.minimumEarnings)) * 100,
         100
       );
-      console.log()
+
     }
 
     res.status(200).json({

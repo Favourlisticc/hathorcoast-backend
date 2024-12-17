@@ -63,7 +63,7 @@ router.post('/signin', async (req, res) => {
       } 
     });
 
-    console.log(token)
+   
 
   } catch (error) {
     console.error('Login error:', error);
@@ -135,7 +135,6 @@ router.get('/pending-agents', adminMiddleware, async (req, res) => {
 // Approve user (tenant or landlord)
 router.post('/approve-user', adminMiddleware, async (req, res) => { 
   const { userId, userType } = req.body; 
-  console.log(req.body);
 
   try { 
       let user; 
@@ -188,12 +187,12 @@ router.post('/approve-user', adminMiddleware, async (req, res) => {
       } else if (userType === 'agent') {
           user = await Agent.findByIdAndUpdate(userId, { isApproved: true }, { new: true }); 
       } else { 
-          console.log('Invalid user type'); 
+         
           return res.status(400).json({ message: 'Invalid user type' }); 
       } 
       
       if (!user) { 
-          console.log('User not found'); 
+          
           return res.status(404).json({ message: 'User not found' }); 
       } 
       
@@ -576,7 +575,6 @@ router.get('/pendingKycs', async (req, res) => {
       return response;
     });
 
-    console.log(formattedKycs);
 
     res.status(200).json({
       success: true,
