@@ -36,7 +36,7 @@ app.use('/landlord', require('./routes/landlord/registration'));
 app.use('/properties', require('./routes/landlord/properties'));
 app.use('/tenant', require('./routes/tenant/registration'));
 app.use('/payments', require('./routes/tenant/payments'));
-app.use('/lease', require('./routes/landlord/leases'));
+app.use('/leas', require('./routes/landlord/leases'));
 app.use('/admin', require('./routes/admin/auth'));
 app.use('/evictions', require('./routes/landlord/evictions'));
 app.use('/tenants', require('./routes/tenant/main'));

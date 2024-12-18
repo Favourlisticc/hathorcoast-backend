@@ -51,22 +51,7 @@ router.post('/create', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/tenant', authMiddleware, async (req, res) => {
-  try {
-    const lease = await Property.findOne({ currentTenant: req.tenant._id, status: 'Occupied' })
-      .populate('landlord', 'firstName lastName email phoneNumber')
-      .populate('currentTenant', 'dates.startDate dates.endDate')
-      .lean();
 
-    if (!lease) {
-      return res.status(404).json({ message: 'No active lease found' });
-    }
-
-    res.json(lease);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching lease', error: error.message });
-  }
-});
 
 // Add this endpoint for editing leases
 router.put('/edit/:tenantId', authMiddleware, async (req, res) => {

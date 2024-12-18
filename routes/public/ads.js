@@ -23,7 +23,6 @@ router.get('/', async (req, res) => {
       );
     }
 
-    console.log("adss",ads)
 
     res.status(200).json({
       success: true,

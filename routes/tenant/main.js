@@ -8,6 +8,8 @@ const { authMiddleware, checkTenantStatus } = require('../../middleware');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 
+const Property = require('../../models/Property');
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -119,6 +121,27 @@ router.put('/profile', authMiddleware, upload.single('profileImage'), async (req
   } catch (error) {
     console.error('Update tenant profile error:', error);
     res.status(500).json({ message: 'Error updating tenant profile', error: error.message });
+  }
+});
+
+router.get('/tenant/:id', authMiddleware, async (req, res) => {
+  const userId = req.params.id  // Fix: access the id parameter correctly
+  try {
+    const lease = await Property.findOne({ currentTenant: userId, status: 'Occupied' })
+      .populate('landlord', 'firstName lastName email phoneNumber')
+      .populate('currentTenant', 'dates.startDate dates.endDate')
+      .lean();
+
+    if (!lease) {
+      console.log('No active lease found')
+      return res.json({ message: 'No active lease found' });
+    }
+
+    console.log(lease)
+    res.json(lease);
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ message: 'Error fetching lease', error: error.message });
   }
 });
 
