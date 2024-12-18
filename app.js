@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 // CORS Configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://hathor-coast-frontend-ztas.vercel.app', "https://hathor-coast-frontend.vercel.app"], // No trailing slash
+  origin: ['http://localhost:3000', "https://hathor-coast.vercel.app"], // No trailing slash
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
