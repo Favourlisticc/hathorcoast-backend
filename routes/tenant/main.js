@@ -122,4 +122,26 @@ router.put('/profile', authMiddleware, upload.single('profileImage'), async (req
   }
 });
 
+
+// Route to get KYC status
+router.get('/kyc-status', authMiddleware, async (req, res) => {
+  try {
+    // Assuming you have middleware to get the logged-in user's ID
+    const tenent = await Tenant.findById(req.tenant._id).select('-password');
+
+
+    if (!tenent) {
+      console.log('Landlord not found')
+      return res.status(404).json({ message: 'Landlord not found' });
+    }
+
+
+    return res.status(200).json({ kycStatus: tenent.kycStatus });
+   
+  } catch (error) {
+    console.log('Error fetching KYC status:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
