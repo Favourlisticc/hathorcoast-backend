@@ -25,6 +25,8 @@ router.post('/signin', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log(email, password)
+
     // Find the tenant by email
     const tenant = await Tenant.findOne({ 'contactInfo.email': email });
     if (!tenant) {
@@ -72,7 +74,7 @@ router.post('/signin', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Tenant signin error:', error);
+    console.log('Tenant signin error:', error);
     res.status(500).json({ message: 'Error signing in', error: error.message });
   }
 });
